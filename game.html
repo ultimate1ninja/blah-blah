@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Catch the Box - Upgraded</title>
+  <title>Catch the Box - Advanced</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -41,6 +41,7 @@
     <h1>🎮 Catch the Box!</h1>
     <p>Use ⬅️ ➡️ arrows or mobile buttons.</p>
     <button class="btn" onclick="startGame()">Start Game</button>
+    <button class="btn" onclick="toggleSound()">🔊 Toggle Sound</button>
   </div>
 
   <div id="gameOver">
@@ -60,7 +61,7 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    let score = 0, highScore = 0, lives = 3;
+    let score = 0, highScore = 0, lives = 3, level = 1;
     let gameRunning = false;
 
     const player = { x: 180, y: 460, width: 40, height: 20, speed: 5 };
@@ -69,22 +70,29 @@
     const boxes = [];
 
     const sounds = {
-      catch: new Audio('https://freesound.org/data/previews/256/256113_3263906-lq.mp3'),
-      miss: new Audio('https://freesound.org/data/previews/341/341695_5260879-lq.mp3')
+      catch: new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_7b9a6571db.mp3'),
+      miss: new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_f1e0c04764.mp3')
     };
+
+    let soundEnabled = true;
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      alert("Sound " + (soundEnabled ? "On" : "Off"));
+    }
 
     function createBox() {
       return {
         x: Math.random() * 360,
         y: -20,
         size: 20,
-        speed: 3 + Math.random() * 2,
+        speed: 2 + Math.random() * (1 + level * 0.3),
         isBomb: Math.random() < 0.2
       };
     }
 
     function resetGame() {
       score = 0;
+      level = 1;
       lives = 3;
       boxes.length = 0;
       boxes.push(createBox());
@@ -111,11 +119,12 @@
     function update() {
       if (!gameRunning) return;
 
-      // Movement
       if (keys['ArrowLeft']) player.x -= player.speed;
       if (keys['ArrowRight']) player.x += player.speed;
 
       player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+      level = Math.floor(score / 10) + 1;
 
       boxes.forEach(box => {
         box.y += box.speed;
@@ -127,11 +136,11 @@
         ) {
           if (box.isBomb) {
             lives--;
-            sounds.miss.play();
+            if (soundEnabled) sounds.miss.play();
           } else {
             score++;
             if (score > highScore) localStorage.setItem('highScore', score);
-            sounds.catch.play();
+            if (soundEnabled) sounds.catch.play();
           }
           Object.assign(box, createBox());
         }
@@ -139,7 +148,7 @@
         if (box.y > canvas.height) {
           if (!box.isBomb) {
             lives--;
-            sounds.miss.play();
+            if (soundEnabled) sounds.miss.play();
           }
           Object.assign(box, createBox());
         }
@@ -150,17 +159,15 @@
         gameOver();
       }
 
-      if (Math.random() < 0.01) boxes.push(createBox());
+      if (Math.random() < 0.01 + level * 0.002) boxes.push(createBox());
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Player
       ctx.fillStyle = '#00f';
       ctx.fillRect(player.x, player.y, player.width, player.height);
 
-      // Boxes
       boxes.forEach(box => {
         ctx.fillStyle = box.isBomb ? 'red' : 'lime';
         ctx.fillRect(box.x, box.y, box.size, box.size);
@@ -170,9 +177,10 @@
       ctx.font = '18px Arial';
       ctx.fillText('Score: ' + score, 10, 20);
       ctx.fillText('Lives: ' + lives, 10, 40);
+      ctx.fillText('Level: ' + level, 10, 60);
 
       highScore = localStorage.getItem('highScore') || 0;
-      ctx.fillText('High Score: ' + highScore, 10, 60);
+      ctx.fillText('High Score: ' + highScore, 10, 80);
     }
 
     function gameLoop() {
