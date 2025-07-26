@@ -2,112 +2,187 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Catch the Box</title>
+  <title>Catch the Box - Upgraded</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
+      font-family: Arial, sans-serif;
       background: #111;
       color: white;
-      font-family: Arial, sans-serif;
       text-align: center;
     }
-
     canvas {
       background: #222;
       display: block;
       margin: 20px auto;
       border: 3px solid #fff;
     }
+    #mobile-controls {
+      display: none;
+      margin: 10px auto;
+    }
+    .btn {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 18px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      border-radius: 5px;
+    }
+    #menu, #gameOver {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>🎮 Catch the Box!</h1>
-  <p>Use ⬅️ ➡️ arrows to move. Catch the falling green box!</p>
+  <div id="menu">
+    <h1>🎮 Catch the Box!</h1>
+    <p>Use ⬅️ ➡️ arrows or mobile buttons.</p>
+    <button class="btn" onclick="startGame()">Start Game</button>
+  </div>
+
+  <div id="gameOver">
+    <h1>Game Over 😵</h1>
+    <p id="finalScore"></p>
+    <button class="btn" onclick="startGame()">Play Again</button>
+  </div>
+
   <canvas id="gameCanvas" width="400" height="500"></canvas>
+
+  <div id="mobile-controls">
+    <button class="btn" onclick="keys['ArrowLeft'] = true; setTimeout(()=>keys['ArrowLeft'] = false, 100)">⬅️</button>
+    <button class="btn" onclick="keys['ArrowRight'] = true; setTimeout(()=>keys['ArrowRight'] = false, 100)">➡️</button>
+  </div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    let score = 0;
+    let score = 0, highScore = 0, lives = 3;
+    let gameRunning = false;
 
-    const player = {
-      x: 180,
-      y: 460,
-      width: 40,
-      height: 20,
-      speed: 5
-    };
-
-    const box = {
-      x: Math.random() * 360,
-      y: -20,
-      size: 20,
-      speed: 3
-    };
+    const player = { x: 180, y: 460, width: 40, height: 20, speed: 5 };
 
     const keys = {};
+    const boxes = [];
+
+    const sounds = {
+      catch: new Audio('https://freesound.org/data/previews/256/256113_3263906-lq.mp3'),
+      miss: new Audio('https://freesound.org/data/previews/341/341695_5260879-lq.mp3')
+    };
+
+    function createBox() {
+      return {
+        x: Math.random() * 360,
+        y: -20,
+        size: 20,
+        speed: 3 + Math.random() * 2,
+        isBomb: Math.random() < 0.2
+      };
+    }
+
+    function resetGame() {
+      score = 0;
+      lives = 3;
+      boxes.length = 0;
+      boxes.push(createBox());
+      gameRunning = true;
+      document.getElementById('menu').style.display = 'none';
+      document.getElementById('gameOver').style.display = 'none';
+      document.getElementById('mobile-controls').style.display = 'block';
+    }
+
+    function startGame() {
+      resetGame();
+      gameLoop();
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      document.getElementById('finalScore').innerText = `Your score: ${score}. High Score: ${highScore}`;
+      document.getElementById('gameOver').style.display = 'block';
+    }
 
     document.addEventListener('keydown', e => keys[e.key] = true);
     document.addEventListener('keyup', e => keys[e.key] = false);
 
     function update() {
-      // Player Movement
-      if (keys['ArrowLeft'] && player.x > 0) {
-        player.x -= player.speed;
-      }
-      if (keys['ArrowRight'] && player.x + player.width < canvas.width) {
-        player.x += player.speed;
+      if (!gameRunning) return;
+
+      // Movement
+      if (keys['ArrowLeft']) player.x -= player.speed;
+      if (keys['ArrowRight']) player.x += player.speed;
+
+      player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+      boxes.forEach(box => {
+        box.y += box.speed;
+
+        if (
+          box.y + box.size >= player.y &&
+          box.x + box.size >= player.x &&
+          box.x <= player.x + player.width
+        ) {
+          if (box.isBomb) {
+            lives--;
+            sounds.miss.play();
+          } else {
+            score++;
+            if (score > highScore) localStorage.setItem('highScore', score);
+            sounds.catch.play();
+          }
+          Object.assign(box, createBox());
+        }
+
+        if (box.y > canvas.height) {
+          if (!box.isBomb) {
+            lives--;
+            sounds.miss.play();
+          }
+          Object.assign(box, createBox());
+        }
+      });
+
+      if (lives <= 0) {
+        highScore = Math.max(score, highScore);
+        gameOver();
       }
 
-      // Move Box
-      box.y += box.speed;
-
-      // Catch box
-      if (
-        box.y + box.size >= player.y &&
-        box.x + box.size >= player.x &&
-        box.x <= player.x + player.width
-      ) {
-        score++;
-        box.y = -20;
-        box.x = Math.random() * 360;
-        box.speed += 0.2; // gets faster!
-      }
-
-      // Missed box
-      if (box.y > canvas.height) {
-        score = 0;
-        box.y = -20;
-        box.x = Math.random() * 360;
-        box.speed = 3;
-      }
+      if (Math.random() < 0.01) boxes.push(createBox());
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw player
+      // Player
       ctx.fillStyle = '#00f';
       ctx.fillRect(player.x, player.y, player.width, player.height);
 
-      // Draw box
-      ctx.fillStyle = '#0f0';
-      ctx.fillRect(box.x, box.y, box.size, box.size);
+      // Boxes
+      boxes.forEach(box => {
+        ctx.fillStyle = box.isBomb ? 'red' : 'lime';
+        ctx.fillRect(box.x, box.y, box.size, box.size);
+      });
 
-      // Draw score
-      ctx.fillStyle = '#fff';
-      ctx.font = '20px Arial';
-      ctx.fillText('Score: ' + score, 10, 30);
+      ctx.fillStyle = 'white';
+      ctx.font = '18px Arial';
+      ctx.fillText('Score: ' + score, 10, 20);
+      ctx.fillText('Lives: ' + lives, 10, 40);
+
+      highScore = localStorage.getItem('highScore') || 0;
+      ctx.fillText('High Score: ' + highScore, 10, 60);
     }
 
     function gameLoop() {
+      if (!gameRunning) return;
       update();
       draw();
       requestAnimationFrame(gameLoop);
     }
 
-    gameLoop();
+    document.getElementById('menu').style.display = 'block';
   </script>
 </body>
 </html>
