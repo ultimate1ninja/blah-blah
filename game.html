@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Catch the Box - Advanced</title>
+  <title>Catch the Box - Leveled</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -65,7 +65,6 @@
     let gameRunning = false;
 
     const player = { x: 180, y: 460, width: 40, height: 20, speed: 5 };
-
     const keys = {};
     const boxes = [];
 
@@ -95,7 +94,6 @@
       level = 1;
       lives = 3;
       boxes.length = 0;
-      boxes.push(createBox());
       gameRunning = true;
       document.getElementById('menu').style.display = 'none';
       document.getElementById('gameOver').style.display = 'none';
@@ -121,26 +119,23 @@
 
       if (keys['ArrowLeft']) player.x -= player.speed;
       if (keys['ArrowRight']) player.x += player.speed;
-
       player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
-
-      level = Math.floor(score / 10) + 1;
 
       boxes.forEach(box => {
         box.y += box.speed;
 
-        if (
-          box.y + box.size >= player.y &&
-          box.x + box.size >= player.x &&
-          box.x <= player.x + player.width
-        ) {
+        const caught = box.y + box.size >= player.y &&
+                       box.x + box.size >= player.x &&
+                       box.x <= player.x + player.width;
+
+        if (caught) {
           if (box.isBomb) {
             lives--;
             if (soundEnabled) sounds.miss.play();
           } else {
             score++;
-            if (score > highScore) localStorage.setItem('highScore', score);
             if (soundEnabled) sounds.catch.play();
+            if (score % 10 === 0) level++; // Level up every 10 points
           }
           Object.assign(box, createBox());
         }
@@ -154,31 +149,38 @@
         }
       });
 
-      if (lives <= 0) {
-        highScore = Math.max(score, highScore);
-        gameOver();
+      // Random and capped box spawning
+      const spawnChance = 0.005 + level * 0.0015;
+      if (Math.random() < spawnChance && boxes.length < 10 + level) {
+        boxes.push(createBox());
       }
 
-      if (Math.random() < 0.01 + level * 0.002) boxes.push(createBox());
+      if (lives <= 0) {
+        highScore = Math.max(score, highScore);
+        localStorage.setItem('highScore', highScore);
+        gameOver();
+      }
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Player
       ctx.fillStyle = '#00f';
       ctx.fillRect(player.x, player.y, player.width, player.height);
 
+      // Boxes
       boxes.forEach(box => {
         ctx.fillStyle = box.isBomb ? 'red' : 'lime';
         ctx.fillRect(box.x, box.y, box.size, box.size);
       });
 
+      // HUD
       ctx.fillStyle = 'white';
       ctx.font = '18px Arial';
       ctx.fillText('Score: ' + score, 10, 20);
       ctx.fillText('Lives: ' + lives, 10, 40);
       ctx.fillText('Level: ' + level, 10, 60);
-
       highScore = localStorage.getItem('highScore') || 0;
       ctx.fillText('High Score: ' + highScore, 10, 80);
     }
