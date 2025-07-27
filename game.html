@@ -23,6 +23,7 @@
       display: flex;
       justify-content: center;
       gap: 10px;
+      flex-wrap: wrap;
     }
     .btn {
       background: #0f0;
@@ -31,6 +32,7 @@
       font-size: 18px;
       border: none;
       border-radius: 5px;
+      user-select: none;
     }
   </style>
 </head>
@@ -38,9 +40,21 @@
   <h1>🚢 Warship Shooter</h1>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
   <div id="controls">
-    <button class="btn" onclick="keys['ArrowLeft'] = true; setTimeout(()=>keys['ArrowLeft']=false,100)">⬅️</button>
-    <button class="btn" onclick="fireMissile()">🔥 Fire</button>
-    <button class="btn" onclick="keys['ArrowRight'] = true; setTimeout(()=>keys['ArrowRight']=false,100)">➡️</button>
+    <button class="btn" 
+      onmousedown="keys['ArrowLeft']=true" 
+      onmouseup="keys['ArrowLeft']=false"
+      ontouchstart="keys['ArrowLeft']=true" 
+      ontouchend="keys['ArrowLeft']=false">⬅️</button>
+    
+    <button class="btn" 
+      onmousedown="manualFire()" 
+      ontouchstart="manualFire()">🔥 Fire</button>
+    
+    <button class="btn" 
+      onmousedown="keys['ArrowRight']=true" 
+      onmouseup="keys['ArrowRight']=false"
+      ontouchstart="keys['ArrowRight']=true" 
+      ontouchend="keys['ArrowRight']=false">➡️</button>
   </div>
 
   <script>
@@ -50,18 +64,44 @@
     const ship = { x: 180, y: 550, width: 40, height: 20, speed: 5 };
     const missiles = [];
     const enemies = [];
+    const stars = Array.from({ length: 100 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2
+    }));
 
     const keys = {};
     let score = 0;
+    let lives = 3;
     let gameOver = false;
+    let canFire = true;
+    const fireCooldown = 300;
 
     const sounds = {
       fire: new Audio('https://cdn.pixabay.com/download/audio/2023/03/30/audio_feb1e24c34.mp3'),
       explode: new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_f1e0c04764.mp3')
     };
 
-    document.addEventListener('keydown', e => keys[e.key] = true);
-    document.addEventListener('keyup', e => keys[e.key] = false);
+    document.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      if (e.key === ' ' && canFire) {
+        fireMissile();
+        canFire = false;
+        setTimeout(() => canFire = true, fireCooldown);
+      }
+    });
+
+    document.addEventListener('keyup', e => {
+      keys[e.key] = false;
+    });
+
+    function manualFire() {
+      if (canFire) {
+        fireMissile();
+        canFire = false;
+        setTimeout(() => canFire = true, fireCooldown);
+      }
+    }
 
     function fireMissile() {
       missiles.push({ x: ship.x + ship.width / 2 - 2, y: ship.y, width: 4, height: 10 });
@@ -75,7 +115,7 @@
         y: -30,
         width: 30,
         height: 30,
-        speed: 2 + Math.random() * 1.5
+        speed: 2 + Math.random() * (1.5 + score * 0.01)
       });
     }
 
@@ -97,7 +137,7 @@
       enemies.forEach((enemy, i) => {
         enemy.y += enemy.speed;
 
-        // Check hit by missile
+        // Check missile collision
         missiles.forEach((m, j) => {
           if (
             m.x < enemy.x + enemy.width &&
@@ -113,26 +153,48 @@
           }
         });
 
-        // Check hit ship
+        // Check ship collision
         if (
           enemy.y + enemy.height > ship.y &&
           enemy.x < ship.x + ship.width &&
           enemy.x + enemy.width > ship.x
         ) {
-          gameOver = true;
-          alert("💥 Game Over! Your score: " + score);
-          location.reload();
+          enemies.splice(i, 1);
+          lives--;
+          sounds.explode.currentTime = 0;
+          sounds.explode.play();
+          if (lives <= 0) {
+            gameOver = true;
+            setTimeout(() => {
+              alert("💥 Game Over! Your score: " + score);
+              location.reload();
+            }, 100);
+          }
         }
 
         if (enemy.y > canvas.height) enemies.splice(i, 1);
       });
 
-      // Add more enemies
+      // Add new enemies
       if (Math.random() < 0.02 + score * 0.001) createEnemy();
+    }
+
+    function drawStars() {
+      ctx.fillStyle = '#ccc';
+      stars.forEach(star => {
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+        star.y += 1;
+        if (star.y > canvas.height) {
+          star.y = 0;
+          star.x = Math.random() * canvas.width;
+        }
+      });
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawStars();
 
       // Ship
       ctx.fillStyle = '#0ff';
@@ -146,10 +208,11 @@
       ctx.fillStyle = 'red';
       enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
 
-      // Score
+      // UI
       ctx.fillStyle = 'white';
       ctx.font = '18px Arial';
       ctx.fillText('Score: ' + score, 10, 20);
+      ctx.fillText('Lives: ' + lives, canvas.width - 80, 20);
     }
 
     function loop() {
