@@ -40,21 +40,9 @@
   <h1>🚢 Warship Shooter</h1>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
   <div id="controls">
-    <button class="btn" 
-      onmousedown="keys['ArrowLeft']=true" 
-      onmouseup="keys['ArrowLeft']=false"
-      ontouchstart="keys['ArrowLeft']=true" 
-      ontouchend="keys['ArrowLeft']=false">⬅️</button>
-    
-    <button class="btn" 
-      onmousedown="manualFire()" 
-      ontouchstart="manualFire()">🔥 Fire</button>
-    
-    <button class="btn" 
-      onmousedown="keys['ArrowRight']=true" 
-      onmouseup="keys['ArrowRight']=false"
-      ontouchstart="keys['ArrowRight']=true" 
-      ontouchend="keys['ArrowRight']=false">➡️</button>
+    <button class="btn" id="leftBtn">⬅️</button>
+    <button class="btn" id="fireBtn">🔥 Fire</button>
+    <button class="btn" id="rightBtn">➡️</button>
   </div>
 
   <script>
@@ -74,34 +62,72 @@
     let score = 0;
     let lives = 3;
     let gameOver = false;
-    let canFire = true;
-    const fireCooldown = 300;
 
     const sounds = {
       fire: new Audio('https://cdn.pixabay.com/download/audio/2023/03/30/audio_feb1e24c34.mp3'),
       explode: new Audio('https://cdn.pixabay.com/download/audio/2022/03/15/audio_f1e0c04764.mp3')
     };
 
-    document.addEventListener('keydown', e => {
-      keys[e.key] = true;
-      if (e.key === ' ' && canFire) {
-        fireMissile();
-        canFire = false;
-        setTimeout(() => canFire = true, fireCooldown);
-      }
-    });
-
-    document.addEventListener('keyup', e => {
-      keys[e.key] = false;
-    });
-
-    function manualFire() {
-      if (canFire) {
-        fireMissile();
-        canFire = false;
-        setTimeout(() => canFire = true, fireCooldown);
+    // Continuous fire cooldown
+    let fireInterval = null;
+    function startFiring() {
+      if (!fireInterval) {
+        fireMissile(); // instant first fire
+        fireInterval = setInterval(fireMissile, 300);
       }
     }
+    function stopFiring() {
+      clearInterval(fireInterval);
+      fireInterval = null;
+    }
+
+    // Movement interval handling
+    let moveLeftInterval = null;
+    let moveRightInterval = null;
+
+    function startMove(dir) {
+      stopMove(); // prevent both at once
+      if (dir === 'left') {
+        moveLeftInterval = setInterval(() => keys['ArrowLeft'] = true, 10);
+      }
+      if (dir === 'right') {
+        moveRightInterval = setInterval(() => keys['ArrowRight'] = true, 10);
+      }
+    }
+    function stopMove() {
+      clearInterval(moveLeftInterval);
+      clearInterval(moveRightInterval);
+      keys['ArrowLeft'] = false;
+      keys['ArrowRight'] = false;
+    }
+
+    document.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      if (e.key === ' ') startFiring();
+    });
+    document.addEventListener('keyup', e => {
+      keys[e.key] = false;
+      if (e.key === ' ') stopFiring();
+    });
+
+    // Touch/mouse events for buttons
+    document.getElementById('leftBtn').addEventListener('touchstart', e => { e.preventDefault(); startMove('left'); });
+    document.getElementById('leftBtn').addEventListener('touchend', stopMove);
+    document.getElementById('leftBtn').addEventListener('mousedown', () => startMove('left'));
+    document.getElementById('leftBtn').addEventListener('mouseup', stopMove);
+    document.getElementById('leftBtn').addEventListener('mouseleave', stopMove);
+
+    document.getElementById('rightBtn').addEventListener('touchstart', e => { e.preventDefault(); startMove('right'); });
+    document.getElementById('rightBtn').addEventListener('touchend', stopMove);
+    document.getElementById('rightBtn').addEventListener('mousedown', () => startMove('right'));
+    document.getElementById('rightBtn').addEventListener('mouseup', stopMove);
+    document.getElementById('rightBtn').addEventListener('mouseleave', stopMove);
+
+    document.getElementById('fireBtn').addEventListener('touchstart', e => { e.preventDefault(); startFiring(); });
+    document.getElementById('fireBtn').addEventListener('touchend', stopFiring);
+    document.getElementById('fireBtn').addEventListener('mousedown', startFiring);
+    document.getElementById('fireBtn').addEventListener('mouseup', stopFiring);
+    document.getElementById('fireBtn').addEventListener('mouseleave', stopFiring);
 
     function fireMissile() {
       missiles.push({ x: ship.x + ship.width / 2 - 2, y: ship.y, width: 4, height: 10 });
